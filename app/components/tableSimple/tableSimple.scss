@@ -1,0 +1,10 @@
+.table-simple{
+    input{
+        &.text{
+            background-color: red;
+        }
+        &.number{
+            background-color: yellow;
+        }
+    }
+}
