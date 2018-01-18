@@ -1,10 +1,10 @@
 .table-simple{
     input{
-        &.text{
-            background-color: red;
+        &.correct{
+            background-color: rgb(170, 255, 170);
         }
-        &.number{
-            background-color: yellow;
+        &.incorrect{
+            background-color: rgb(255, 152, 152);
         }
     }
 }

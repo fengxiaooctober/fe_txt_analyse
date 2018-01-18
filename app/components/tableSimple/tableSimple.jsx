@@ -14,9 +14,43 @@ class TableSimple extends React.Component{
             }
         }.bind(this));
     }
+    renderSumCell(props){
+        let isTotoalField = false, arrayClassName = [];
+        for(let key in props.original){
+            if(/\u603b\u8ba1/.test(props.original[key])){
+                isTotoalField = true;
+                break;
+            }
+        }
+        //Verify sum
+        if(isTotoalField && !isNaN(parseFloat(props.value))){
+            let sumCalculated = 0, columnName = props.column.id, rowName = props.row[this.state.columns[0].accessor];
+            this.state.data
+            .filter((row,index)=>{
+                return index < props.index;
+            })
+            .forEach((row, index)=>{
+                if(index==0)return;
+                sumCalculated += parseFloat(row[columnName])||0;
+            });
+            arrayClassName.push(sumCalculated==parseFloat(props.value)?'correct':'incorrect');
+        }
+        return isTotoalField && !/\u603b\u8ba1/.test(props.value)?(
+        <input type="number" className={arrayClassName.join(' ')} value={props.value} column={props.column.Header} index={props.index}
+            onChange={this.onchangeCell.bind(this,props.index,props.column.Header)}/>
+        ):null;
+    }
+    renderEditableCell(props){
+        return props.row.isEditable?(
+        <input type="number" value={props.value} column={props.column.Header} index={props.index}
+        onChange={this.onchangeCell.bind(this,props.index,props.column.Header)}/>
+        ):null;
+    }
 	render(){
         let newColumnName = this.state.newColumnName;
-        let arrayOptColumns = this.state.columns.map((item,index)=>{
+        //All Columns
+        let arrayOptColumns = this.state.columns
+        .map((item,index)=>{
             return (
                 <option value={item.accessor} key={index}>{item.Header}</option>
             )
@@ -24,6 +58,16 @@ class TableSimple extends React.Component{
         arrayOptColumns.push(
             <option value="" key={this.state.columns.length}>{'LAST'}</option>
         )
+        //All Rows
+        let arrayOptRows = this.state.data
+        .filter((item, index)=>{
+            return index>0;
+        })
+        .map((item,index)=>{
+            return (
+                <option value={index+1} key={index}>{index+1}</option>
+            )
+        });
         return (
 		 <div className="table-simple">
          <div>
@@ -35,6 +79,14 @@ class TableSimple extends React.Component{
             <button type="button" onClick={this.onclickAddColumBefore.bind(this)}>Add Column</button>
             <button type="button" onClick={this.onClickSave.bind(this)}>Save</button>
         </div>
+        <div>
+            <button type="button" onClick={this.onclickAddColum} disabled="disabled">Add Colum</button>
+            <span>Add a row</span>
+            <span>before</span>
+            <select value={this.state.params.rowAddBefore} onChange={this.onchangeUpdateByPath.bind(this, 'params.rowAddBefore')}>{arrayOptRows}</select>
+            <button type="button" onClick={this.onclickAddRowBefore.bind(this)}>Add Row</button>
+            <button type="button" onClick={this.onClickSave.bind(this)}>Save</button>
+        </div>
         <ReactTable data={this.state.data} columns={this.state.columns} />
          </div>
 		)
@@ -42,7 +94,8 @@ class TableSimple extends React.Component{
     getParamsObject(){
         return {
             newColumnName: '',
-            columnAddBefore: ''
+            columnAddBefore: '',
+            rowAddBefore: 1
         };
     }
     getInitialState(){
@@ -78,18 +131,10 @@ class TableSimple extends React.Component{
             return {
                 Header: item,
                 accessor: item,
-                Cell: props => {
-                    // console.warn('props', props);
-                    let isTotoalField = false;
-                    for(let key in props.original){
-                        if(/\u603b\u8ba1/.test(props.original[key])){
-                            isTotoalField = true;
-                            break;
-                        }
-                    }
-                    return isTotoalField && !/\u603b\u8ba1/.test(props.value)?(
-                    <input type="number" value={props.value} column={props.column.Header} index={props.index} onChange={this.onchangeCell.bind(self,props.index,props.column.Header)}/>
-                    ):(
+                Cell: props=>{
+                    return this.renderSumCell.bind(this)(props)
+                    || this.renderEditableCell.bind(this)(props)
+                    || (
                     <span>{props.value}</span>
                     )
                 }
@@ -104,7 +149,6 @@ class TableSimple extends React.Component{
         };
     }
     onchangeUpdateByPath(path, e){
-        console.log('onchangeUpdateByPath - path', path);
         let arrayNodes = path.split('.');
         if(this.state[arrayNodes[0]]){
             let keyIterator, key1stLayer;
@@ -195,8 +239,6 @@ class TableSimple extends React.Component{
         });
     }
     onclickAddColumBefore(e){
-        // console.log('this.params',this.state.params);
-        // console.log('e',e);
         let newColumnName = this.state.params.newColumnName;
         let columnAddBefore = this.state.params.columnAddBefore;
         if(newColumnName){
@@ -215,9 +257,14 @@ class TableSimple extends React.Component{
             columns.splice(indexToInsert,0,{
                 Header: newColumnName,
                 accessor: newColumnName.toLowerCase(),
-                Cell: props => (
+                // Cell: props => (
+                //     <input type="text" value={props.value} column={props.column.Header} index={props.index} onChange={this.onchangeCell.bind(this,props.index,props.column.Header)}/>
+                // )
+                Cell: props => {
+                    return this.renderSumCell.bind(this)(props) || (
                     <input type="text" value={props.value} column={props.column.Header} index={props.index} onChange={this.onchangeCell.bind(this,props.index,props.column.Header)}/>
-                )
+                    );
+                }
             });
             data.forEach(item=>{
                 item[newColumnName] = '';
@@ -236,6 +283,24 @@ class TableSimple extends React.Component{
                     action: 'REPLACE'
                 }
             })
+        }
+    }
+    onclickAddRowBefore(e){
+        let rowAddBefore = parseInt(this.state.params.rowAddBefore);
+        if(!isNaN(rowAddBefore)){
+            let data = [].concat(this.state.data);
+            let obj = {};
+            this.state.columns.forEach(item=>{
+                obj[item.accessor] = '';
+            });
+            obj.isEditable = true;
+            data.splice(rowAddBefore, 0, obj);
+            this.updateState({
+                data: {
+                    value: data,
+                    action: 'REPLACE'
+                }
+            });
         }
     }
     onClickSave(){
